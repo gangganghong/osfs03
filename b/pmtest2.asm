@@ -19,6 +19,8 @@ LABEL_DESC_DATA:   Descriptor    0,      DataLen-1, DA_DRW    ; Data
 LABEL_DESC_STACK:  Descriptor    0,     TopOfStack, DA_DRWA+DA_32; Stack, 32 位
 LABEL_DESC_TEST:   Descriptor 0500000h,     0ffffh, DA_DRW
 LABEL_DESC_VIDEO:  Descriptor  0B8000h,     0ffffh, DA_DRW    ; 显存首地址
+
+LABEL_DESC_BEGIN: Descriptor    0,         0ffffh, DA_C      ; 非一致代码段, 16
 ; GDT 结束
 
 GdtLen		equ	$ - LABEL_GDT	; GDT长度
@@ -33,6 +35,8 @@ SelectorData		equ	LABEL_DESC_DATA		- LABEL_GDT
 SelectorStack		equ	LABEL_DESC_STACK	- LABEL_GDT
 SelectorTest		equ	LABEL_DESC_TEST		- LABEL_GDT
 SelectorVideo		equ	LABEL_DESC_VIDEO	- LABEL_GDT
+
+SelectorBegin		eqq LABEL_DESC_BEGIN - LABEL_GDT
 ; END of [SECTION .gdt]
 
 [SECTION .data1]	 ; 数据段
@@ -113,6 +117,15 @@ LABEL_BEGIN:
 	mov	byte [LABEL_DESC_STACK + 4], al
 	mov	byte [LABEL_DESC_STACK + 7], ah
 
+	mov	ax, cs
+	movzx	eax, ax
+	shl	eax, 4
+	add	eax, LABEL_SEG_CODE16
+	mov	word [LABEL_DESC_CODE16 + 2], ax
+	shr	eax, 16
+	mov	byte [LABEL_DESC_CODE16 + 4], al
+	mov	byte [LABEL_DESC_CODE16 + 7], ah
+
 	; 为加载 GDTR 作准备
 	xor	eax, eax
 	mov	ax, ds
@@ -142,6 +155,29 @@ LABEL_BEGIN:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 LABEL_REAL_ENTRY:		; 从保护模式跳回到实模式就到了这里
+	mov	ax, cs
+	mov	ds, ax
+	mov	es, ax
+	mov	ss, ax
+
+	mov	sp, [SPValueInRealMode]
+
+	in	al, 92h		; `.
+	and	al, 11111101b	;  | 关闭 A20 地址线
+	out	92h, al		; /
+
+	sti			; 开中断
+
+	mov	ax, 4c00h	; `.
+	int	21h		; /  回到 DOS
+
+
+
+HELLO:
+	mov	eax, cr0
+	and	al, 11111110b
+	mov	cr0, eax
+
 	mov	ax, cs
 	mov	ds, ax
 	mov	es, ax
@@ -200,7 +236,8 @@ LABEL_SEG_CODE32:
 	call	TestRead
 
 	; 到此停止
-	jmp	SelectorCode16:0
+	jmp SelectorBegin:HELLO
+	;jmp	SelectorCode16:0
 
 ; ------------------------------------------------------------------------
 TestRead:
