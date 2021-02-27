@@ -310,12 +310,14 @@ ALIGN	32
 [BITS	16]
 LABEL_SEG_CODE16:
 	; 跳回实模式:
-	mov	ax, SelectorNormal
-	mov	ds, ax
-	mov	es, ax
-	mov	fs, ax
-	mov	gs, ax
-	mov	ss, ax
+;被注释的这段，没有作用。
+;SelectorNormal 没有任何作用。
+;	mov	ax, SelectorNormal
+;	mov	ds, ax
+;	mov	es, ax
+;	mov	fs, ax
+;	mov	gs, ax
+;	mov	ss, ax
 
 	mov	eax, cr0
 	and	al, 11111110b
