@@ -231,8 +231,8 @@ LABEL_SEG_CODE32:
 	call	DispReturn
 
 	; 测试调用门（无特权级变换），将打印字母 'C'
-	call	SelectorCallGateTest:0
-	;call	SelectorCodeDest:0
+	;call	SelectorCallGateTest:0
+	call	SelectorCodeDest:0
 
 	; Load LDT
 	mov	ax, SelectorLDT
@@ -274,7 +274,7 @@ LABEL_SEG_CODE_DEST:
 	mov	ah, 0Ch			; 0000: 黑底    1100: 红字
 	mov	al, 'C'
 	mov	[gs:edi], ax
-
+	
 	retf
 
 SegCodeDestLen	equ	$ - LABEL_SEG_CODE_DEST

@@ -15,7 +15,7 @@ LABEL_GDT:         Descriptor       0,                 0, 0     	; 空描述符
 LABEL_DESC_NORMAL: Descriptor       0,            0ffffh, DA_DRW	; Normal 描述符
 LABEL_DESC_CODE32: Descriptor       0,  SegCode32Len - 1, DA_C + DA_32	; 非一致代码段, 32
 LABEL_DESC_CODE16: Descriptor       0,            0ffffh, DA_C		; 非一致代码段, 16
-LABEL_DESC_DATA:   Descriptor       0,       DataLen - 1, DA_DRW+DA_DPL1	; Data
+LABEL_DESC_DATA:   Descriptor       0,       DataLen - 1, DA_DRW+DA_DPL3	; Data
 LABEL_DESC_STACK:  Descriptor       0,        TopOfStack, DA_DRWA + DA_32; Stack, 32 位
 LABEL_DESC_LDT:    Descriptor       0,        LDTLen - 1, DA_LDT	; LDT
 LABEL_DESC_VIDEO:  Descriptor 0B8000h,            0ffffh, DA_DRW	; 显存首地址
@@ -29,7 +29,7 @@ GdtPtr		dw	GdtLen - 1	; GDT界限
 SelectorNormal		equ	LABEL_DESC_NORMAL	- LABEL_GDT
 SelectorCode32		equ	LABEL_DESC_CODE32	- LABEL_GDT
 SelectorCode16		equ	LABEL_DESC_CODE16	- LABEL_GDT
-SelectorData		equ	LABEL_DESC_DATA		- LABEL_GDT
+SelectorData		equ	LABEL_DESC_DATA		- LABEL_GDT + SA_RPL3
 SelectorStack		equ	LABEL_DESC_STACK	- LABEL_GDT
 SelectorLDT		equ	LABEL_DESC_LDT		- LABEL_GDT
 SelectorVideo		equ	LABEL_DESC_VIDEO	- LABEL_GDT
@@ -133,6 +133,16 @@ LABEL_BEGIN:
 	mov	byte [LABEL_LDT_DESC_CODEA + 4], al
 	mov	byte [LABEL_LDT_DESC_CODEA + 7], ah
 
+	; 初始化 LDT 中的描述符
+	xor	eax, eax
+	mov	ax, ds
+	shl	eax, 4
+	add	eax, LABEL_CODE_K
+	mov	word [LABEL_LDT_DESC_CODEK + 2], ax
+	shr	eax, 16
+	mov	byte [LABEL_LDT_DESC_CODEK + 4], al
+	mov	byte [LABEL_LDT_DESC_CODEK + 7], ah
+
 	; 为加载 GDTR 作准备
 	xor	eax, eax
 	mov	ax, ds
@@ -217,7 +227,7 @@ LABEL_SEG_CODE32:
 	mov	ax, SelectorLDT
 	lldt	ax
 
-	jmp	SelectorLDTCodeA:0	; 跳入局部任务
+	jmp	SelectorLDTCodeK:0	; 跳入局部任务
 
 ; ------------------------------------------------------------------------
 DispReturn:
@@ -272,11 +282,12 @@ ALIGN	32
 LABEL_LDT:
 ;                            段基址       段界限      属性
 LABEL_LDT_DESC_CODEA: Descriptor 0, CodeALen - 1, DA_C + DA_32 ; Code, 32 位
-
+LABEL_LDT_DESC_CODEK: Descriptor 0, CodeKLen - 1, DA_C + DA_32 ; Code, 32 位
 LDTLen		equ	$ - LABEL_LDT
 
 ; LDT 选择子
 SelectorLDTCodeA	equ	LABEL_LDT_DESC_CODEA	- LABEL_LDT + SA_TIL
+SelectorLDTCodeK	equ	LABEL_LDT_DESC_CODEK	- LABEL_LDT + SA_TIL
 ; END of [SECTION .ldt]
 
 
@@ -284,6 +295,18 @@ SelectorLDTCodeA	equ	LABEL_LDT_DESC_CODEA	- LABEL_LDT + SA_TIL
 [SECTION .la]
 ALIGN	32
 [BITS	32]
+LABEL_CODE_K:
+	mov	ax, SelectorVideo
+	mov	gs, ax			; 视频段选择子(目的)
+
+	mov	edi, (80 * 13 + 0) * 2	; 屏幕第 10 行, 第 0 列。
+	mov	ah, 0Ch			; 0000: 黑底    1100: 红字
+	mov	al, 'K'
+	mov	[gs:edi], ax
+
+	jmp	SelectorLDTCodeA:0	; 跳入局部任务
+CodeKLen	equ	$ - LABEL_CODE_K
+
 LABEL_CODE_A:
 	mov	ax, SelectorVideo
 	mov	gs, ax			; 视频段选择子(目的)

@@ -64,6 +64,7 @@ TopOfStack	equ	$ - LABEL_STACK - 1
 [SECTION .s16]
 [BITS	16]
 LABEL_BEGIN:
+	xchg	bx, bx
 	mov	ax, cs
 	mov	ds, ax
 	mov	es, ax
@@ -77,7 +78,9 @@ LABEL_BEGIN:
 	mov	ax, cs
 	movzx	eax, ax
 	shl	eax, 4
-	add	eax, LABEL_SEG_CODE16
+	;add	eax, LABEL_SEG_CODE16
+	;add	eax, LABEL_BEGIN
+	add	eax, LABEL_REAL_ENTRY
 	mov	word [LABEL_DESC_CODE16 + 2], ax
 	shr	eax, 16
 	mov	byte [LABEL_DESC_CODE16 + 4], al
@@ -141,7 +144,21 @@ LABEL_BEGIN:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-LABEL_REAL_ENTRY:		; 从保护模式跳回到实模式就到了这里
+LABEL_REAL_ENTRY:
+	xchg	bx, bx		; 从保护模式跳回到实模式就到了这里
+	; 跳回实模式:
+	mov	ax, SelectorNormal
+	mov	ds, ax
+	mov	es, ax
+	mov	fs, ax
+	mov	gs, ax
+	mov	ss, ax
+	
+	mov	eax, cr0
+	and	al, 11111110b
+	mov	cr0, eax
+	xchg	bx, bx
+	;xchg	bx, bx
 	mov	ax, cs
 	mov	ds, ax
 	mov	es, ax
@@ -200,6 +217,9 @@ LABEL_SEG_CODE32:
 	call	TestRead
 
 	; 到此停止
+	;jmp	SelectorCode16:0
+	xchg	bx, bx
+	;jmp	SelectorCode16:LABEL_REAL_ENTRY
 	jmp	SelectorCode16:0
 
 ; ------------------------------------------------------------------------
@@ -312,13 +332,14 @@ LABEL_SEG_CODE16:
 	; 跳回实模式:
 ;被注释的这段，没有作用。
 ;SelectorNormal 没有任何作用。
-;	mov	ax, SelectorNormal
-;	mov	ds, ax
-;	mov	es, ax
-;	mov	fs, ax
-;	mov	gs, ax
-;	mov	ss, ax
-
+	xchg	bx, bx
+	mov	ax, SelectorNormal
+	mov	ds, ax
+	mov	es, ax
+	mov	fs, ax
+	mov	gs, ax
+	mov	ss, ax
+	xchg	bx, bx
 	mov	eax, cr0
 	and	al, 11111110b
 	mov	cr0, eax
